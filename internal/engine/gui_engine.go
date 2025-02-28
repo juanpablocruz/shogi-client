@@ -25,29 +25,20 @@ func NewGUIEngine(e EngineAPI) *GUIEngine {
 	}
 }
 
-func (e GUIEngine) ListenCMD() {
-	ctx, cancel := context.WithCancel(context.Background())
+func (e *GUIEngine) ListenCMD() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				m, _ := e.EngineAPI.ReceiveMessage()
-				e.ProcessEngineCMD(m)
-			}
-		}
-	}()
+	m, _ := e.EngineAPI.ReceiveMessage(ctx)
+	e.ProcessEngineCMD(m)
 }
 
-func (e GUIEngine) ProcessEngineCMD(str string) error {
+func (e *GUIEngine) ProcessEngineCMD(str string) error {
 	// TODO: Implement this
 	return nil
 }
 
-func (e GUIEngine) ProcessCMD(cmd shogi.GUICommand, args ...string) error {
+func (e *GUIEngine) ProcessCMD(cmd shogi.GUICommand, args ...string) error {
 	switch cmd {
 	case shogi.USI:
 		return e.initializeUSI()
@@ -70,7 +61,6 @@ func (e GUIEngine) ProcessCMD(cmd shogi.GUICommand, args ...string) error {
 		sfen := args[0]
 		return e.position(sfen, args[1:])
 	case shogi.SetOption:
-
 		if len(args) < 2 {
 			return fmt.Errorf("invalid command setoption arguments, %v", args)
 		}
@@ -82,44 +72,25 @@ func (e GUIEngine) ProcessCMD(cmd shogi.GUICommand, args ...string) error {
 	case shogi.Ponderhit:
 		return e.ponderHit()
 	case shogi.Gameover:
-
 		if len(args) < 1 {
 			return fmt.Errorf("invalid command gameover arguments, %v", args)
 		}
-		return e.gameOver(args[1])
+		return e.gameOver(args[0])
 	case shogi.Quit:
 		return e.quit()
 	}
 	return nil
 }
 
-func (e GUIEngine) sendCommand(cmd string) error {
+func (e *GUIEngine) sendCommand(cmd string) error {
 	return e.EngineAPI.SendMessage(cmd)
 }
 
-func (e GUIEngine) readMsg() (string, error) {
-	return e.EngineAPI.ReceiveMessage()
+func (e *GUIEngine) receiveMessage(ctx context.Context) (string, error) {
+	return e.EngineAPI.ReceiveMessage(ctx)
 }
 
-func (e GUIEngine) receiveMessage(ctx context.Context, msg chan string) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				m, _ := e.readMsg()
-				msg <- m
-			}
-		}
-	}()
-}
-
-func maxTimeoutWait(ms time.Duration, cancel context.CancelFunc) {
-	time.AfterFunc(ms, cancel)
-}
-
-func (e GUIEngine) receiveOptions(args []string) error {
+func (e *GUIEngine) receiveOptions(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("invalid response received, expecting option <args>, but received %v", args)
 	}
@@ -202,62 +173,62 @@ func (e GUIEngine) receiveOptions(args []string) error {
 // to tell the GUI which engine settings the engine support.
 // After that, the engine should send `usiok` to acknowledge the USI mode.
 // If no `usiok` is sent within a certain time period, the engine task will be killed by the GUI.
-func (e GUIEngine) initializeUSI() error {
+func (e *GUIEngine) initializeUSI() error {
+	// send the "usi" command to the engine
 	if err := e.sendCommand("usi"); err != nil {
 		return err
 	}
-	// wait for usiok
-	ctx, cancel := context.WithCancel(context.Background())
+
+	// set a timeout for receiving the expected messages.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	maxTimeoutWait(3*time.Second, cancel)
-
-	ch := make(chan string)
-	defer close(ch)
-
-	e.receiveMessage(ctx, ch)
 
 	state := 0
 
 	for {
-		select {
-		case msg := <-ch:
-			parts := strings.Split(msg, " ")
-			if len(parts) < 1 {
-				return fmt.Errorf("invalid msg received %s", msg)
-			}
-			cmd := parts[0]
-			args := parts[1:]
-			switch state {
-			case 0:
-
-				if cmd == "id" {
-					state = 1
-					if len(args) < 1 {
-						return fmt.Errorf("invalid response received, expecting id <id>, received id %v", args)
-					}
-					e.EngineID = args[0]
-				} else {
-					return fmt.Errorf("invalid response received, expecting id <id>, received %v", msg)
-				}
-			case 1:
-				if cmd == "option" {
-					if err := e.receiveOptions(args); err != nil {
-						return err
-					}
-				}
-				if cmd == "usiok" {
-					return nil
-				}
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("expecting usiok within a timeframe, but no usiok received")
+		msg, err := e.receiveMessage(ctx)
+		if err != nil {
+			return err
 		}
+
+		parts := strings.Split(msg, " ")
+		if len(parts) < 1 {
+			return fmt.Errorf("invalid msg received %s", msg)
+		}
+		cmd := parts[0]
+		args := parts[1:]
+		switch state {
+		case 0:
+			switch cmd {
+			case "id":
+				state = 1
+				if len(args) < 2 {
+					return fmt.Errorf("invalid response received, expecting id name <id>, received id %v", args)
+				}
+				e.EngineID = args[1]
+			case "usiok":
+				return nil
+			default:
+				return fmt.Errorf("invalid response received, expecting id name <id>, received %v", msg)
+			}
+		case 1:
+			switch cmd {
+			case "option":
+				if err := e.receiveOptions(args); err != nil {
+					return err
+				}
+			case "usiok":
+				return nil
+			default:
+				return fmt.Errorf("usi unexpectedly returned")
+			}
+		}
+
 	}
 }
 
 // debug [on|off]
-func (e GUIEngine) toggleDebug(isOn bool) error {
+func (e *GUIEngine) toggleDebug(isOn bool) error {
 	cmd := "debug"
 	if isOn {
 		cmd = fmt.Sprintf("%s on", cmd)
@@ -267,17 +238,17 @@ func (e GUIEngine) toggleDebug(isOn bool) error {
 	return e.sendCommand(cmd)
 }
 
-func (e GUIEngine) synchReady() error {
+func (e *GUIEngine) synchReady() error {
 	return e.sendCommand("isready")
 }
 
-func (e GUIEngine) setOption(option string, value string) error {
+func (e *GUIEngine) setOption(option string, value string) error {
 	return e.sendCommand(fmt.Sprintf("setoption name %s value %s", option, value))
 }
 
 // register later
 // register name Stefan MK code 4359874324
-func (e GUIEngine) register(args []string) error {
+func (e *GUIEngine) register(args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("invalid arguments, received: %s", args)
 	}
@@ -330,15 +301,15 @@ func (e GUIEngine) register(args []string) error {
 		case "later":
 			allCMDscmdStr = fmt.Sprintf("%s later", allCMDscmdStr)
 		case "name":
-			if len(cmd.argument) != 1 {
-				return fmt.Errorf("invalid command, register name <x> requires an argument x, none received")
+			if len(cmd.argument) == 0 {
+				return fmt.Errorf("invalid command, register name <x> requires an argument x, none received, %v", cmd)
 			}
-			allCMDscmdStr = fmt.Sprintf("%s name %s", allCMDscmdStr, cmd.cmd)
+			allCMDscmdStr = fmt.Sprintf("%s name%s", allCMDscmdStr, cmd.argument)
 		case "code":
-			if len(cmd.argument) != 1 {
+			if len(cmd.argument) == 0 {
 				return fmt.Errorf("invalid command, register code <x> requires an argument x, none received")
 			}
-			allCMDscmdStr = fmt.Sprintf("%s code %s", allCMDscmdStr, cmd.cmd)
+			allCMDscmdStr = fmt.Sprintf("%s code%s", allCMDscmdStr, cmd.argument)
 		}
 	}
 
@@ -348,32 +319,32 @@ func (e GUIEngine) register(args []string) error {
 	return e.sendCommand(allCMDscmdStr)
 }
 
-func (e GUIEngine) newGame() error {
+func (e *GUIEngine) newGame() error {
 	return e.sendCommand("usinewgame")
 }
 
-func (e GUIEngine) position(sfen string, moves []string) error {
-	movesString := "moves "
+func (e *GUIEngine) position(sfen string, moves []string) error {
+	movesString := "moves"
 	for _, m := range moves {
 		movesString = fmt.Sprintf("%s %s", movesString, m)
 	}
 	return e.sendCommand(fmt.Sprintf("position %s %s", sfen, movesString))
 }
 
-func (e GUIEngine) sendGo() error {
+func (e *GUIEngine) sendGo() error {
 	// TODO: implement this?
 	return nil
 }
 
-func (e GUIEngine) stop() error {
+func (e *GUIEngine) stop() error {
 	return e.sendCommand("stop")
 }
 
-func (e GUIEngine) ponderHit() error {
+func (e *GUIEngine) ponderHit() error {
 	return e.sendCommand("ponderhit")
 }
 
-func (e GUIEngine) gameOver(outcome string) error {
+func (e *GUIEngine) gameOver(outcome string) error {
 	if outcome != "win" && outcome != "lose" && outcome != "draw" {
 		return fmt.Errorf("invalid command, expecting gameover [win|lose|draw], received argument %s", outcome)
 	}

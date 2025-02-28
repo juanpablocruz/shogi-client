@@ -1,6 +1,12 @@
 package engine
 
-import "github.com/juanpablocruz/shogo/clientr/internal/shogi"
+import (
+	"context"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/juanpablocruz/shogo/clientr/internal/shogi"
+)
 
 type EngineOption struct {
 	Name        string
@@ -11,7 +17,7 @@ type EngineOption struct {
 
 type EngineAPI interface {
 	SendMessage(string) error
-	ReceiveMessage() (string, error)
+	ReceiveMessage(context.Context) (string, error)
 }
 
 type LocalEngine struct {
@@ -22,18 +28,22 @@ type LocalEngine struct {
 }
 
 type ServerLocalEngine struct {
-	engineCh chan string
-	guiCh    chan string
+	EngineCh chan string
+	GUICh    chan string
 }
 
 func (e ServerLocalEngine) SendMessage(s string) error {
-	e.guiCh <- s
+	e.GUICh <- s
 	return nil
 }
 
-func (e ServerLocalEngine) ReceiveMessage() (string, error) {
-	msg := <-e.engineCh
-	return msg, nil
+func (e ServerLocalEngine) ReceiveMessage(ctx context.Context) (string, error) {
+	select {
+	case m := <-e.EngineCh:
+		return m, nil
+	case <-ctx.Done():
+		return "", fmt.Errorf("timeout waiting for message")
+	}
 }
 
 func NewLocalEngine(g *shogi.Game) LocalEngine {
@@ -41,12 +51,12 @@ func NewLocalEngine(g *shogi.Game) LocalEngine {
 	guiCh := make(chan string, 2)
 
 	sle := ServerLocalEngine{
-		engineCh: engineCh,
-		guiCh:    guiCh,
+		EngineCh: engineCh,
+		GUICh:    guiCh,
 	}
 	engineOptions := make(map[string]EngineOption)
-
-	engine := NewEngine(sle, g, engineOptions)
+	id := uuid.New().String()
+	engine := NewEngine(id, sle, g, engineOptions)
 
 	return LocalEngine{
 		Game:     g,
@@ -61,7 +71,11 @@ func (e LocalEngine) SendMessage(s string) error {
 	return nil
 }
 
-func (e LocalEngine) ReceiveMessage() (string, error) {
-	msg := <-e.guiCh
-	return msg, nil
+func (e LocalEngine) ReceiveMessage(ctx context.Context) (string, error) {
+	select {
+	case m := <-e.guiCh:
+		return m, nil
+	case <-ctx.Done():
+		return "", fmt.Errorf("timeout waiting for message")
+	}
 }

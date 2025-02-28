@@ -3,8 +3,9 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/juanpablocruz/shogo/clientr/internal/shogi"
 )
 
@@ -16,10 +17,10 @@ type Engine struct {
 	Game          *shogi.Game
 }
 
-func NewEngine(api EngineAPI, game *shogi.Game, options map[string]EngineOption) *Engine {
+func NewEngine(id string, api EngineAPI, game *shogi.Game, options map[string]EngineOption) *Engine {
 	return &Engine{
 		IsInitialized: false,
-		EngineID:      uuid.New().String(),
+		EngineID:      id,
 		EngineOptions: options,
 		EngineAPI:     api,
 		Game:          game,
@@ -27,20 +28,10 @@ func NewEngine(api EngineAPI, game *shogi.Game, options map[string]EngineOption)
 }
 
 func (e Engine) ListenCMD() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				m, _ := e.EngineAPI.ReceiveMessage()
-				e.ProcessGUICMD(m)
-			}
-		}
-	}()
+	m, _ := e.EngineAPI.ReceiveMessage(ctx)
+	e.ProcessGUICMD(m)
 }
 
 func (e Engine) ProcessGUICMD(str string) error {
@@ -55,11 +46,16 @@ func (e Engine) ProcessCMD(cmd shogi.EngineCommand, args ...string) error {
 	case shogi.BestMove:
 		return e.sendBestMove()
 	case shogi.Checkmate:
-		return e.sendCheckMate()
+		return e.sendCheckMate(args)
 	case shogi.Info:
 		return e.sendInfo()
 	case shogi.Option:
 		return e.sendOptions()
+	case shogi.ReadyOk:
+		return e.sendReady()
+	case shogi.USIOk:
+	default:
+		panic(fmt.Sprintf("unexpected shogi.EngineCommand: %#v", cmd))
 	}
 	return nil
 }
@@ -93,14 +89,16 @@ func (e Engine) sendReady() error {
 // also in pondering mode if there is a `stop` command, so for every `go` command a `bestmove` command is needed!
 func (e Engine) sendBestMove() error {
 	// TODO: implement
-	return nil
+	return fmt.Errorf("notimplemented")
 }
 
 // checkmate [<move1> ... <movei> | nomate | timeout | notimplemented]
 // As `go mate` is not supported we always reply with `checkmate notimplemented`
-func (e Engine) sendCheckMate() error {
-	// TODO: implement
-	return nil
+func (e Engine) sendCheckMate(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("checkmate expecting arguments, none received")
+	}
+	return e.EngineAPI.SendMessage(fmt.Sprintf("checkmate %s", strings.Join(args, " ")))
 }
 
 // info
@@ -143,7 +141,7 @@ func (e Engine) sendCheckMate() error {
 // If <cpunr> is greater than 1, always send all k lines in k strings together. The engine should only send this if the option USI_ShowCurrLine is set to true.
 func (e Engine) sendInfo() error {
 	// TODO: implement
-	return nil
+	return fmt.Errorf("notimplemented")
 }
 
 // option
@@ -208,5 +206,5 @@ func (e Engine) sendInfo() error {
 // "option name ResetLearning type button\n"
 func (e Engine) sendOptions() error {
 	// TODO: implement
-	return nil
+	return fmt.Errorf("notimplemented")
 }
