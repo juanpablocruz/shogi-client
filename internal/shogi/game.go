@@ -61,6 +61,10 @@ func (g Game) Board() *Board {
 	return g.board
 }
 
+func (g *Game) SetBoard(b *Board) {
+	g.board = b
+}
+
 func (g Game) MoveStr(cmd string) error {
 	m, err := g.notation.DecodeMovement(cmd)
 	if err != nil {
@@ -71,6 +75,5 @@ func (g Game) MoveStr(cmd string) error {
 
 func (g *Game) Move(m Move) error {
 	g.moves = append(g.moves, &m)
-
-	return nil
+	return g.board.ProcessMove(&m)
 }

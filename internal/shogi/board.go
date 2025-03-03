@@ -39,8 +39,7 @@ func (b Board) PieceCanMove(p Piece, m Move) bool {
 	return p.CanMove(m.Destination, b)
 }
 
-// In cases where the moving piece is ambiguous, the starting square is added after the letter for the piece but before the movement
-func (b Board) DisambiguityNeeded(m Move) bool {
+func (b Board) GetPiecesThatCanMove(m Move) []Piece {
 	// 1. Get all Pieces of type m.Type
 	allPiecesOfType := b.getAllPiecesOfType(m.Piece)
 	// 2. Get all of those pieces that can move to m.Destination
@@ -50,6 +49,12 @@ func (b Board) DisambiguityNeeded(m Move) bool {
 			piecesThatCanMove = append(piecesThatCanMove, p)
 		}
 	}
+	return piecesThatCanMove
+}
+
+// In cases where the moving piece is ambiguous, the starting square is added after the letter for the piece but before the movement
+func (b Board) DisambiguityNeeded(m Move) bool {
+	piecesThatCanMove := b.GetPiecesThatCanMove(m)
 	// 3. If there is more than 1 possibility return true else return false
 	return len(piecesThatCanMove) > 1
 }
@@ -190,4 +195,33 @@ func (b Board) String() string {
 	currentMove := b.CurrentMove
 
 	return fmt.Sprintf("%s %s %s %d", piecePlacement, turn, handPieces, currentMove)
+}
+
+func (b Board) GetPieceAtSquare(p Piece, sq Square) (Piece, error) {
+	if b.BitBoard[sq] == p.String() {
+		p.Square = sq
+		return p, nil
+	}
+	return Piece{}, fmt.Errorf("shogi: no piece %s found at square (%s,%s)", p.String(), sq.File().String(), sq.Rank().String())
+}
+
+func (b *Board) ProcessMove(m *Move) error {
+	var p Piece
+	var err error
+	if m.Origin == NewSquare(0, 0) {
+		candidates := b.GetPiecesThatCanMove(*m)
+		if len(candidates) != 1 {
+			b.Debug()
+			return fmt.Errorf("shogi: no valid candidates %s to move to (%s,%s)", m.Piece.String(), m.Destination.File().String(), m.Destination.Rank().String())
+		}
+		p = candidates[0]
+	} else {
+		p, err = b.GetPieceAtSquare(m.Piece, m.Origin)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("%s (%s,%s)\n", p.String(), p.Square.File().String(), p.Square.Rank().String())
+	return nil
 }

@@ -27,19 +27,70 @@ func NewEngine(id string, api EngineAPI, game *shogi.Game, options map[string]En
 	}
 }
 
-func (e Engine) ListenCMD() {
+func (e *Engine) ListenCMD() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	m, _ := e.EngineAPI.ReceiveMessage(ctx)
-	e.ProcessGUICMD(m)
+	cmd, args, err := e.parseGUICommand(m)
+	if err != nil {
+		return err
+	}
+
+	return e.ProcessGUICMD(cmd, args)
 }
 
-func (e Engine) ProcessGUICMD(str string) error {
+func (e *Engine) parseGUICommand(str string) (shogi.GUICommand, []string, error) {
+	parts := strings.Split(str, " ")
+	if len(parts) < 1 {
+		return shogi.NoGUICommand, []string{}, fmt.Errorf("unable to parse gui command %s", str)
+	}
+
+	var args []string
+	if len(parts) > 1 {
+		args = parts[1:]
+	}
+	switch parts[0] {
+	case "usi":
+		return shogi.USI, args, nil
+	case "debug":
+		return shogi.Debug, args, nil
+	case "isready":
+		return shogi.IsReady, args, nil
+	case "setoption":
+		return shogi.SetOption, args, nil
+	case "register":
+		return shogi.Register, args, nil
+	case "usinewgame":
+		return shogi.USINewGame, args, nil
+	case "position":
+		return shogi.Position, args, nil
+	case "go":
+		return shogi.Go, args, nil
+	case "stop":
+		return shogi.Stop, args, nil
+	case "ponderhit":
+		return shogi.Ponderhit, args, nil
+	case "gameover":
+		return shogi.Gameover, args, nil
+	case "quit":
+		return shogi.Quit, args, nil
+	default:
+		return shogi.NoGUICommand, []string{}, fmt.Errorf("unable to parse gui command %s", str)
+	}
+}
+
+func (e *Engine) ProcessGUICMD(cmd shogi.GUICommand, args []string) error {
 	// TODO: Implement
+	switch cmd {
+	case shogi.USI:
+		return e.ProcessCMD(shogi.Id)
+	case shogi.Position:
+		return e.ProcessPosition(args)
+	}
 	return nil
 }
 
-func (e Engine) ProcessCMD(cmd shogi.EngineCommand, args ...string) error {
+func (e *Engine) ProcessCMD(cmd shogi.EngineCommand, args ...string) error {
 	switch cmd {
 	case shogi.Id:
 		return e.sendId()
@@ -63,12 +114,16 @@ func (e Engine) ProcessCMD(cmd shogi.EngineCommand, args ...string) error {
 // id
 // `name <x>` - This must be sent after receiving the `usi` command to identify the engine, e.g. id name Shredder X.Y\n
 // `author <x>` - This must be sent after receiving the `usi` command to identify the engine, eg.g. id author Stefan MK\n
-func (e Engine) sendId() error {
+func (e *Engine) sendId() error {
 	err := e.EngineAPI.SendMessage(fmt.Sprintf("id name %s", e.EngineID))
 	if err != nil {
 		return err
 	}
 
+	err = e.sendOptions()
+	if err != nil {
+		return err
+	}
 	// usiok
 	// Must be sent after the `id` and optional options to tell the GUI that the engine has sent all infos and is ready in usi mode.
 	return e.EngineAPI.SendMessage("usiok")
@@ -78,7 +133,7 @@ func (e Engine) sendId() error {
 // This must be sent when the engine has received an `isready` command and has processed all input and is ready to accept new commands now.
 // It is usually sent after a command that can take some time to be able to wait for the engine, but it can be used anytime,
 // event when the engine is searching, and must always be answered with `readyok`.
-func (e Engine) sendReady() error {
+func (e *Engine) sendReady() error {
 	return e.EngineAPI.SendMessage("readyok")
 }
 
@@ -87,14 +142,14 @@ func (e Engine) sendReady() error {
 // The engine has stopped searching and found the move <move> best in this position. The engine can send the move it likes to ponder on.
 // The engine must not start pondering automatically. This command must always be sent if the engine stops searching,
 // also in pondering mode if there is a `stop` command, so for every `go` command a `bestmove` command is needed!
-func (e Engine) sendBestMove() error {
+func (e *Engine) sendBestMove() error {
 	// TODO: implement
 	return fmt.Errorf("notimplemented")
 }
 
 // checkmate [<move1> ... <movei> | nomate | timeout | notimplemented]
 // As `go mate` is not supported we always reply with `checkmate notimplemented`
-func (e Engine) sendCheckMate(args []string) error {
+func (e *Engine) sendCheckMate(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("checkmate expecting arguments, none received")
 	}
@@ -139,7 +194,7 @@ func (e Engine) sendCheckMate(args []string) error {
 // `currline <cpunr> <move1> ... <movei>` - This is the current line the engine is calculating. <cpunr> is the number of the cpu if the engine
 // is running on more than one cpu. <cpunr> = 1,2,3,... If the engine is just using one cpu, <cpunr> can be omitted.
 // If <cpunr> is greater than 1, always send all k lines in k strings together. The engine should only send this if the option USI_ShowCurrLine is set to true.
-func (e Engine) sendInfo() error {
+func (e *Engine) sendInfo() error {
 	// TODO: implement
 	return fmt.Errorf("notimplemented")
 }
@@ -204,7 +259,74 @@ func (e Engine) sendInfo() error {
 // "option name Style type combo default Normal var Solid var Normal var Risky\n"
 // "option name LearningFile type filename default /shogi/my-shogi-engine/learn.bin"
 // "option name ResetLearning type button\n"
-func (e Engine) sendOptions() error {
-	// TODO: implement
-	return fmt.Errorf("notimplemented")
+func (e *Engine) sendOptions() error {
+	for key, opt := range e.EngineOptions {
+		defaultVal := ""
+		if opt.Default != "" {
+			defaultVal = fmt.Sprintf(" default %s", opt.Default)
+		}
+		optStr := fmt.Sprintf("option name %s type %s%s\n", key, opt.Type, defaultVal)
+		_ = e.EngineAPI.SendMessage(optStr)
+	}
+	return nil
+}
+
+/*
+		Process the position command from the gui
+
+	  position [sfen <sfenstring> | startpos] moves <move1> ... <movei>
+
+	  Set up the position described in sfenstring on the internal board and play the moves on the internal board.
+	  If the game was played from the start position, the string `startpos` will be sent.
+*/
+func (e *Engine) ProcessPosition(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("position requires at least 2 arguments: moves and the movement string, received: %v", args)
+	}
+
+	startPost := ""
+	isMove := false
+	currStr := ""
+	movements := []string{}
+	for _, arg := range args {
+		switch arg {
+		case "moves":
+			isMove = true
+			startPost = currStr
+			currStr = ""
+		default:
+			if isMove {
+				movements = append(movements, arg)
+			} else {
+				currStr = fmt.Sprintf("%s %s", currStr, arg)
+			}
+		}
+	}
+
+	if len(movements) < 1 {
+		return fmt.Errorf("invalid position command, expecting `moves`, received: %v", args)
+	}
+
+	if startPost != "" {
+		b, err := e.Game.Notation().DecodeBoard(startPost)
+		if err != nil {
+			return err
+		}
+
+		e.Game.SetBoard(&b)
+	}
+
+	for _, m := range movements {
+		mo, err := e.Game.Notation().DecodeMovement(m)
+		if err != nil {
+			continue
+		}
+
+		err = e.Game.Move(mo)
+		if err != nil {
+			fmt.Printf("%s\n", err)
+		}
+	}
+
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type Notation struct {
@@ -29,7 +30,60 @@ const (
 )
 
 func (n Notation) DecodeBoard(sfen string) (Board, error) {
-	return Board{}, nil
+	parts := strings.Split(strings.TrimSpace(sfen), " ")
+	if len(parts) < 3 {
+		return Board{}, fmt.Errorf("shogi: invalid sfen string received, expecting at least 3 parts, received: %s", sfen)
+	}
+
+	b := Board{
+		CurrentMove: 0,
+	}
+
+	bParts := strings.Split(parts[0], "/")
+	if len(bParts) < 9 {
+		return Board{}, fmt.Errorf("shogi: invalid sfen string received, expecting board with 9 /, received: %s", parts[0])
+	}
+
+	bb := make([]string, 81)
+	for rank, rankStr := range bParts {
+		fileIndx := 0
+		for _, c := range rankStr {
+			if unicode.IsDigit(c) {
+				num := int(c) - 48
+				fileIndx += num
+				continue
+			}
+			bb[(rank*numOfSquaresInRow)+fileIndx] = string(c)
+			fileIndx++
+		}
+	}
+
+	b.BitBoard = bb
+
+	turn := parts[1]
+	if turn != "b" && turn != "w" {
+		return Board{}, fmt.Errorf("shogi: invalid sfen string received, expecting turn to be b or w, but received: %s", turn)
+	}
+
+	if turn == "b" {
+		b.Turn = Black
+	} else {
+		b.Turn = White
+	}
+
+	var h Hand
+
+	b.Hand = h
+
+	if len(parts) == 4 {
+		currMovements, err := strconv.Atoi(parts[3])
+		if err != nil {
+			return Board{}, err
+		}
+		b.CurrentMove = currMovements
+	}
+
+	return b, nil
 }
 
 func (n Notation) EncodeMovement(m Move) string {

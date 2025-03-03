@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/juanpablocruz/shogo/clientr/internal/shogi"
@@ -40,7 +41,7 @@ func (e ServerLocalEngine) SendMessage(s string) error {
 func (e ServerLocalEngine) ReceiveMessage(ctx context.Context) (string, error) {
 	select {
 	case m := <-e.EngineCh:
-		return m, nil
+		return strings.ReplaceAll(m, "\n", ""), nil
 	case <-ctx.Done():
 		return "", fmt.Errorf("timeout waiting for message")
 	}
@@ -74,7 +75,7 @@ func (e LocalEngine) SendMessage(s string) error {
 func (e LocalEngine) ReceiveMessage(ctx context.Context) (string, error) {
 	select {
 	case m := <-e.guiCh:
-		return m, nil
+		return strings.ReplaceAll(m, "\n", ""), nil
 	case <-ctx.Done():
 		return "", fmt.Errorf("timeout waiting for message")
 	}

@@ -3,10 +3,11 @@ package shogi
 type EngineCommand int8
 
 const (
+	NoEngineCommand EngineCommand = iota
 	// id
 	// `name <x>` - This must be sent after receiving the `usi` command to identify the engine, e.g. id name Shredder X.Y\n
 	// `author <x>` - This must be sent after receiving the `usi` command to identify the engine, eg.g. id author Stefan MK\n
-	Id EngineCommand = iota
+	Id
 	// usiok
 	// Must be sent after the `id` and optional options to tell the GUI that the engine has sent all infos and is ready in usi mode.
 	USIOk
@@ -129,6 +130,7 @@ const (
 type GUICommand int8
 
 const (
+	NoGUICommand GUICommand = iota
 	// usi
 	// Tell engine to use the USI.
 	// This will be sent once as a first command after program boot to tell the engine to switch to USI mode.
@@ -136,7 +138,7 @@ const (
 	// to tell the GUI which engine settings the engine support.
 	// After that, the engine should send `usiok` to acknowledge the USI mode.
 	// If no `usiok` is sent within a certain time period, the engine task will be killed by the GUI.
-	USI GUICommand = iota
+	USI
 	// debug [on | off ]
 	// Switch the debug mode of the engine on and off. In debug mode the engine should send additional info to the GUI.
 	// Example: with the `info string` command, to help debuggin.

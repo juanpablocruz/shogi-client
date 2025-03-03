@@ -25,17 +25,59 @@ func NewGUIEngine(e EngineAPI) *GUIEngine {
 	}
 }
 
-func (e *GUIEngine) ListenCMD() {
+func (e *GUIEngine) ListenCMD() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	m, _ := e.EngineAPI.ReceiveMessage(ctx)
-	e.ProcessEngineCMD(m)
+	cmd, args, err := e.ParseEngineCmd(m)
+	if err != nil {
+		return err
+	}
+	return e.ProcessEngineCMD(cmd, args)
 }
 
-func (e *GUIEngine) ProcessEngineCMD(str string) error {
-	// TODO: Implement this
-	return nil
+func (e *GUIEngine) ParseEngineCmd(str string) (shogi.EngineCommand, []string, error) {
+	parts := strings.Split(str, " ")
+	if len(parts) < 1 {
+		return shogi.NoEngineCommand, []string{}, fmt.Errorf("unable to parse command %s", str)
+	}
+
+	var args []string
+	if len(parts) > 1 {
+		args = parts[1:]
+	}
+
+	switch parts[0] {
+	case "id":
+		return shogi.Id, args, nil
+	case "readyok":
+		return shogi.ReadyOk, args, nil
+	case "bestmove":
+		return shogi.BestMove, args, nil
+	case "checkmate":
+		return shogi.Checkmate, args, nil
+	case "info":
+		return shogi.Info, args, nil
+	case "option":
+		return shogi.Option, args, nil
+	default:
+		return shogi.NoEngineCommand, []string{}, fmt.Errorf("unable to parse command %s", str)
+	}
+}
+
+func (e *GUIEngine) ProcessEngineCMD(cmd shogi.EngineCommand, args []string) error {
+	switch cmd {
+	case shogi.Info:
+		return nil
+	case shogi.BestMove:
+		return nil
+	case shogi.Option:
+		return e.receiveOptions(args)
+	default:
+		// If the command is not implemented do nothing
+		return nil
+	}
 }
 
 func (e *GUIEngine) ProcessCMD(cmd shogi.GUICommand, args ...string) error {
