@@ -197,12 +197,20 @@ func (b Board) String() string {
 	return fmt.Sprintf("%s %s %s %d", piecePlacement, turn, handPieces, currentMove)
 }
 
-func (b Board) GetPieceAtSquare(p Piece, sq Square) (Piece, error) {
+func (b Board) GetPieceAtSquareWithPiece(p Piece, sq Square) (Piece, error) {
 	if b.BitBoard[sq] == p.String() {
 		p.Square = sq
 		return p, nil
 	}
 	return Piece{}, fmt.Errorf("shogi: no piece %s found at square (%s,%s)", p.String(), sq.File().String(), sq.Rank().String())
+}
+
+func (b Board) GetPieceAtSquare(sq Square) (Piece, error) {
+	if b.BitBoard[sq] != "" {
+		p := NewPiece(b.BitBoard[sq], false)
+		return p, nil
+	}
+	return Piece{}, fmt.Errorf("shogi: no piece found at square (%s,%s)", sq.File().String(), sq.Rank().String())
 }
 
 func (b *Board) ProcessMove(m *Move) error {
@@ -215,13 +223,33 @@ func (b *Board) ProcessMove(m *Move) error {
 			return fmt.Errorf("shogi: no valid candidates %s to move to (%s,%s)", m.Piece.String(), m.Destination.File().String(), m.Destination.Rank().String())
 		}
 		p = candidates[0]
+	} else if m.Piece != (Piece{}) {
+		p, err = b.GetPieceAtSquareWithPiece(m.Piece, m.Origin)
+		if err != nil {
+			return err
+		}
 	} else {
-		p, err = b.GetPieceAtSquare(m.Piece, m.Origin)
+		p, err = b.GetPieceAtSquare(m.Origin)
 		if err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("%s (%s,%s)\n", p.String(), p.Square.File().String(), p.Square.Rank().String())
+	b.BitBoard[m.Origin] = ""
+	b.BitBoard[m.Destination] = p.String()
+
+	var nextTurn Color
+	if p.Color == Black {
+		nextTurn = White
+	} else {
+		nextTurn = Black
+	}
+	b.NextTurn(nextTurn)
+
 	return nil
+}
+
+func (b *Board) NextTurn(c Color) {
+	b.CurrentMove++
+	b.Turn = c
 }

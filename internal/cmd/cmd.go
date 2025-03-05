@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -22,8 +23,22 @@ func hint(game *shogi.Game, gui *gui.GUI, in *input.Input) string {
 	gui.DrawMsgLabel("Thinking...", gui.Theme)
 	gui.Render(game, in)
 
-	return "Thinking..."
-	// return strings.Repeat(" ", 80)
+	if game.GetAIClient() != nil {
+		ai := game.GetAIClient()
+		h, err := ai.AskHint(game.Board().String())
+		if err != nil {
+			fmt.Printf("shogo: ask hint error %v", err)
+			return ""
+		}
+
+		gui.SetHint(h)
+		return fmt.Sprintf("%s%s", h, strings.Repeat(" ", 80-len(h)))
+
+	} else {
+		fmt.Printf("No ai client found \n")
+	}
+
+	return strings.Repeat(" ", 80)
 }
 
 func ProcessCmd(cmd string, game *shogi.Game, gui *gui.GUI, in *input.Input) (string, *shogi.Game) {
@@ -44,6 +59,21 @@ func ProcessCmd(cmd string, game *shogi.Game, gui *gui.GUI, in *input.Input) (st
 		return strings.Repeat(" ", 80), resetGame(game)
 	case "hint":
 		return hint(game, gui, in), game
+	case "y":
+		if gui.Hint != "" {
+			m, err := game.Notation().DecodeHodgesMove(gui.Hint)
+			gui.Hint = ""
+			if err != nil {
+				return strings.Repeat(" ", 80), game
+			}
+			_ = game.Move(m)
+			return strings.Repeat(" ", 80), game
+
+		}
+		gui.Hint = ""
+	case "n":
+
+		gui.Hint = ""
 	default:
 		if err := game.MoveStr(cmd); err != nil {
 			return "\u26A0 Illegal. Try again.", game

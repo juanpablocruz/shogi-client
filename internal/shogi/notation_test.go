@@ -204,3 +204,44 @@ func TestNotation_DecodeMovement(t *testing.T) {
 		})
 	}
 }
+
+func TestNotation_DecodeHodgesMove(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		move    string
+		want    shogi.Move
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+		{
+			name: "Hodges decode",
+			move: "7g7f",
+			want: shogi.Move{
+				Destination: shogi.NewSquare(shogi.File(6), shogi.Rank(5)),
+				Origin:      shogi.NewSquare(shogi.File(6), shogi.Rank(6)),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// TODO: construct the receiver type.
+			var n shogi.Notation
+			got, gotErr := n.DecodeHodgesMove(tt.move)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("DecodeHodgesMove() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("DecodeHodgesMove() succeeded unexpectedly")
+			}
+			// TODO: update the condition below to compare got with tt.want.
+			if tt.want.Destination != got.Destination || tt.want.Origin != got.Origin {
+				t.Errorf("DecodeHodgesMove() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

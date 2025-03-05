@@ -207,3 +207,35 @@ func (n Notation) ParsePiece(sfen string, isPromoted bool) (Piece, error) {
 	}
 	return NewPiece(sfen, isPromoted), nil
 }
+
+func (n Notation) DecodeHodgesMove(move string) (Move, error) {
+	if len(move) < 4 {
+		return Move{}, fmt.Errorf("shogi: Couldn't decode hodges movement, expecting length 4, received: %s", move)
+	}
+
+	org := move[:2]
+	dest := move[2:4]
+
+	orgParts := strings.Split(org, "")
+	destParts := strings.Split(dest, "")
+
+	fromFile, err := strconv.ParseInt(orgParts[0], 10, 8)
+	if err != nil {
+		return Move{}, err
+	}
+
+	destFile, err := strconv.ParseInt(destParts[0], 10, 8)
+	if err != nil {
+		return Move{}, err
+	}
+	orgSquare := NewSquare(File(fromFile-1), Rank(rankAsNum[orgParts[1]]-1))
+	destSquare := NewSquare(File(destFile-1), Rank(rankAsNum[destParts[1]]-1))
+
+	m := Move{
+		Origin:      orgSquare,
+		Destination: destSquare,
+		Type:        SimpleMovement,
+	}
+
+	return m, nil
+}

@@ -3,10 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/joho/godotenv"
+	"github.com/juanpablocruz/shogo/clientr/internal/agent"
 	"github.com/juanpablocruz/shogo/clientr/internal/cmd"
 	"github.com/juanpablocruz/shogo/clientr/internal/config"
 	"github.com/juanpablocruz/shogo/clientr/internal/gui"
@@ -55,12 +58,38 @@ func ConnectClient(address string) {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+	var aiClient agent.Agent
+	agentType := os.Getenv("AGENT")
+	if agentType == "openai" {
+		openai_key := os.Getenv("OPENAI_API_KEY")
+
+		if openai_key == "" {
+			log.Fatal("No OPENAI_API_KEY found in env")
+		}
+		aiClient = agent.NewOpenAIAgent(openai_key)
+	} else {
+
+		claude_key := os.Getenv("CLAUDE_API_KEY")
+
+		if claude_key == "" {
+			log.Fatal("No CLAUDE_API_KEY found in env")
+		}
+		aiClient = agent.NewClaudeAgent(claude_key)
+	}
+
 	config := config.Init()
 
 	address := fmt.Sprintf("127.0.0.1:%d", config.Port)
 	fmt.Println("Connecting to ", address)
 
-	gs := *shogi.NewGame(config.SentePlayer, config.GotePlayer)
+	gs := *shogi.NewGame(config.SentePlayer, config.GotePlayer,
+		func(g *shogi.Game) {
+			g.SetAIClient(aiClient)
+		})
 
 	gui := gui.NewGUI()
 	gui.Theme = theme.ThemeBasic

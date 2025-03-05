@@ -17,6 +17,8 @@ type GUI struct {
 	HandleEventKey   func(tcell.Event)
 
 	Theme theme.Theme
+
+	Hint string
 }
 
 func NewGUI() *GUI {

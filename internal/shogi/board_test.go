@@ -1,6 +1,7 @@
 package shogi_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -72,6 +73,45 @@ func TestBoard_String(t *testing.T) {
 			// TODO: update the condition below to compare got with tt.want.
 			if got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoard_ProcessMove(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		m       *shogi.Move
+		wantErr bool
+	}{
+		{
+			name: "move",
+			m: &shogi.Move{
+				Destination: shogi.NewSquare(shogi.File(6), shogi.Rank(5)),
+				Origin:      shogi.NewSquare(shogi.File(6), shogi.Rank(6)),
+				Piece:       shogi.NewPiece("P", false),
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := shogi.NewBoard()
+			b.LoadSfen(shogi.StartingPosition)
+			b.Debug()
+			fmt.Printf("%s\n", b.String())
+			gotErr := b.ProcessMove(tt.m)
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("ProcessMove() failed: %v", gotErr)
+				}
+				return
+			}
+			b.Debug()
+			fmt.Printf("%s\n", b.String())
+			if tt.wantErr {
+				t.Fatal("ProcessMove() succeeded unexpectedly")
 			}
 		})
 	}

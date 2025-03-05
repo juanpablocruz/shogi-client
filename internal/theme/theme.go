@@ -22,6 +22,7 @@ type Theme struct {
 	Rank         tcell.Color `json:"rank"`
 	File         tcell.Color `json:"file"`
 	Prompt       tcell.Color `json:"prompt"`
+	PieceHint    tcell.Color `json:"pieceHint"`
 	MeterBase    tcell.Color `json:"meterBase"`
 	MeterMid     tcell.Color `json:"meterMid"`
 	MeterNeutral tcell.Color `json:"meterNeutral"`
@@ -51,6 +52,7 @@ type ThemeHex struct {
 	Rank         string `json:"rank"`
 	File         string `json:"file"`
 	Prompt       string `json:"prompt"`
+	PieceHint    string `json:"pieceHint"`
 	MeterBase    string `json:"meterBase"`
 	MeterMid     string `json:"meterMid"`
 	MeterNeutral string `json:"meterNeutral"`
@@ -93,6 +95,7 @@ func (t Theme) Hex() ThemeHex {
 		fmtHex(t.File.Hex()),
 		fmtHex(t.Prompt.Hex()),
 		fmtHex(t.MeterBase.Hex()),
+		fmtHex(t.MeterBase.Hex()),
 		fmtHex(t.MeterMid.Hex()),
 		fmtHex(t.MeterNeutral.Hex()),
 		fmtHex(t.MeterWin.Hex()),
@@ -123,6 +126,7 @@ func (t ThemeHex) Theme() Theme {
 		tcell.GetColor(t.Rank),
 		tcell.GetColor(t.File),
 		tcell.GetColor(t.Prompt),
+		tcell.GetColor(t.MeterBase),
 		tcell.GetColor(t.MeterBase),
 		tcell.GetColor(t.MeterMid),
 		tcell.GetColor(t.MeterNeutral),
@@ -158,7 +162,7 @@ var ThemeBasic = Theme{
 	tcell.Color188,     // SquareDark
 	tcell.Color230,     // SquareLight
 	tcell.Color226,     // SquareHigh
-	tcell.Color223,     // SquareHint
+	tcell.Color28,      // SquareHint
 	tcell.Color218,     // SquareCheck
 	tcell.Color124,     // Gote
 	tcell.Color232,     // Sente
@@ -166,6 +170,7 @@ var ThemeBasic = Theme{
 	tcell.Color247,     // Rank
 	tcell.Color247,     // File
 	tcell.Color160,     // Prompt
+	tcell.Color28,      // PieceHint
 	tcell.Color240,     // MeterBase
 	tcell.ColorDefault, // MeterMid
 	tcell.Color45,      // MeterNeutral

@@ -1,5 +1,7 @@
 package shogi
 
+import "github.com/juanpablocruz/shogo/clientr/internal/agent"
+
 type Outcome string
 
 const (
@@ -19,6 +21,7 @@ type Game struct {
 	notation    Notation
 	moves       []*Move
 	board       *Board
+	ai          agent.Agent
 }
 
 func NewGame(sentePlayer, GotePlayer string, options ...func(*Game)) *Game {
@@ -38,7 +41,19 @@ func NewGame(sentePlayer, GotePlayer string, options ...func(*Game)) *Game {
 		moves: []*Move{},
 	}
 
+	for _, f := range options {
+		f(game)
+	}
+
 	return game
+}
+
+func (g *Game) SetAIClient(c agent.Agent) {
+	g.ai = c
+}
+
+func (g *Game) GetAIClient() agent.Agent {
+	return g.ai
 }
 
 func (g Game) GotePlayer() string {

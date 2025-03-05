@@ -124,6 +124,7 @@ func (gui GUI) Render(gs *shogi.Game, i *input.Input) {
 	gui.drawPrompt(i, gui.Theme)
 	gui.drawPlayers(gs)
 	gui.drawMoves(gs)
+	gui.drawHint(gs)
 
 	(*gui.Screen).Show()
 }
@@ -193,4 +194,72 @@ func (gui GUI) drawBoard(g *shogi.Game, t theme.Theme) {
 
 	fileStyle := tcell.StyleDefault.Foreground(t.File)
 	gui.drawLabel(leftMargin+2, row, fileStyle, "1 2 3 4 5 6 7 8 9")
+}
+
+func (gui *GUI) SetHint(movement string) {
+	gui.Hint = movement
+}
+
+func (gui *GUI) drawHint(g *shogi.Game) {
+	m, err := g.Notation().DecodeHodgesMove(gui.Hint)
+	if err != nil {
+		return
+	}
+
+	srcFile := int(m.Origin.File())
+	srcRank := int(m.Origin.Rank())
+	dstFile := int(m.Destination.File())
+	dstRank := int(m.Destination.Rank())
+
+	srcX := leftMargin + 2 + 2*srcFile
+	srcY := topMargin + srcRank
+	dstX := leftMargin + 2 + 2*dstFile
+	dstY := topMargin + dstRank
+
+	boardPiece := g.Board().BitBoard[m.Origin]
+	var piece shogi.Piece
+	if boardPiece == "" {
+		piece = shogi.Piece{Type: shogi.NoPiece}
+	} else {
+		isPromoted := false
+		if strings.Contains(boardPiece, "+") {
+			isPromoted = true
+			boardPiece = boardPiece[1:]
+		}
+		piece = shogi.NewPiece(boardPiece, isPromoted)
+	}
+
+	srcBg := squareBg(m.Origin, gui.Theme)
+	// dstBg := squareBg(m.Destination, gui.Theme)
+
+	highlightFg := gui.Theme.PieceHint
+	highlightBg := gui.Theme.SquareHint
+
+	srcHighlightStyle := tcell.StyleDefault.Background(srcBg).Foreground(highlightFg).Bold(true)
+
+	// Redraw the origin square with the highlighted piece.
+	pieceRune, _ := piece.Render()
+	gui.drawRune(srcX, srcY, srcHighlightStyle, pieceRune)
+
+	// For the destination square, get any piece present.
+	// g.Board().BitBoard[shogi.NewSquare(shogi.File(srcFile), shogi.Rank(srcRank))]
+
+	destCode := g.Board().BitBoard[m.Destination]
+	var destPiece shogi.Piece
+	if destCode == "" {
+		destPiece = shogi.Piece{Type: shogi.NoPiece}
+	} else {
+		isPromoted := false
+		if strings.Contains(destCode, "+") {
+			isPromoted = true
+			destCode = destCode[1:]
+		}
+		destPiece = shogi.NewPiece(destCode, isPromoted)
+	}
+
+	// Redraw the destination square with the highlight background.
+	gui.drawSquare(dstX, dstY, destPiece, highlightBg, gui.Theme)
+
+	gui.DrawMsgLabel(fmt.Sprintf("(%s) Accept hint? y/n", gui.Hint), gui.Theme)
+	(*gui.Screen).Show()
 }
