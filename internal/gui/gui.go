@@ -18,7 +18,10 @@ type GUI struct {
 
 	Theme theme.Theme
 
-	Hint string
+	Hint       string
+	logs       []string
+	maxLogs    int
+	logPointer int
 }
 
 func NewGUI() *GUI {
@@ -40,9 +43,12 @@ func NewGUI() *GUI {
 	s.Clear()
 
 	return &GUI{
-		Screen:   &s,
-		defStyle: defStyle,
-		boxStyle: boxStyle,
+		Screen:     &s,
+		defStyle:   defStyle,
+		boxStyle:   boxStyle,
+		maxLogs:    10,
+		logs:       make([]string, 10),
+		logPointer: 0,
 	}
 }
 

@@ -25,17 +25,19 @@ func hint(game *shogi.Game, gui *gui.GUI, in *input.Input) string {
 
 	if game.GetAIClient() != nil {
 		ai := game.GetAIClient()
-		h, err := ai.AskHint(game.Board().String())
+		boardStr := game.Board().String()
+		gui.AppendLog(fmt.Sprintf("Sending AI client: %s", boardStr))
+		h, err := ai.AskHint(boardStr)
 		if err != nil {
-			fmt.Printf("shogo: ask hint error %v", err)
+			gui.AppendLog(fmt.Sprintf("shogo error: ask hint error %v", err))
 			return ""
 		}
 
+		gui.AppendLog(fmt.Sprintf("AI responds: %s", h))
 		gui.SetHint(h)
-		return fmt.Sprintf("%s%s", h, strings.Repeat(" ", 80-len(h)))
-
+		return h
 	} else {
-		fmt.Printf("No ai client found \n")
+		gui.AppendLog("No ai client found")
 	}
 
 	return strings.Repeat(" ", 80)
@@ -75,9 +77,20 @@ func ProcessCmd(cmd string, game *shogi.Game, gui *gui.GUI, in *input.Input) (st
 
 		gui.Hint = ""
 	default:
+
+		m, err := game.Notation().DecodeHodgesMove(cmd)
+		if err == nil {
+			game.Move(m)
+
+			gui.AppendLog(fmt.Sprintf("%s -> %s", cmd, game.Board().String()))
+
+			return strings.Repeat(" ", 80), game
+		}
 		if err := game.MoveStr(cmd); err != nil {
 			return "\u26A0 Illegal. Try again.", game
 		}
+
+		gui.AppendLog(fmt.Sprintf("%s -> %s", cmd, game.Board().String()))
 	}
 	return strings.Repeat(" ", 80), game
 }

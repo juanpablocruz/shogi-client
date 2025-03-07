@@ -34,6 +34,7 @@ type Theme struct {
 	Emoji        tcell.Color `json:"emoji"`
 	Input        tcell.Color `json:"input"`
 	Advantage    tcell.Color `json:"advantage"`
+	Log          tcell.Color `json:"log"`
 }
 
 // ThemeHex is used for dynamically coloring the UI
@@ -64,6 +65,7 @@ type ThemeHex struct {
 	Emoji        string `json:"emoji"`
 	Input        string `json:"input"`
 	Advantage    string `json:"advantage"`
+	Log          string `json:"log"`
 }
 
 // fmtHex returns a one character hex for the ColorDefault
@@ -106,6 +108,7 @@ func (t Theme) Hex() ThemeHex {
 		fmtHex(t.Emoji.Hex()),
 		fmtHex(t.Input.Hex()),
 		fmtHex(t.Advantage.Hex()),
+		fmtHex(t.Log.Hex()),
 	}
 }
 
@@ -138,6 +141,7 @@ func (t ThemeHex) Theme() Theme {
 		tcell.GetColor(t.Emoji),
 		tcell.GetColor(t.Input),
 		tcell.GetColor(t.Advantage),
+		tcell.GetColor(t.Log),
 	}
 }
 
@@ -182,4 +186,5 @@ var ThemeBasic = Theme{
 	tcell.ColorDefault, // Emoji
 	tcell.ColorDefault, // Input
 	tcell.Color247,     // Advantage
+	tcell.Color245,
 }

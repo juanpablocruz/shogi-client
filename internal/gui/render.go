@@ -125,6 +125,7 @@ func (gui GUI) Render(gs *shogi.Game, i *input.Input) {
 	gui.drawPlayers(gs)
 	gui.drawMoves(gs)
 	gui.drawHint(gs)
+	gui.drawLogs()
 
 	(*gui.Screen).Show()
 }
@@ -201,10 +202,16 @@ func (gui *GUI) SetHint(movement string) {
 }
 
 func (gui *GUI) drawHint(g *shogi.Game) {
-	m, err := g.Notation().DecodeHodgesMove(gui.Hint)
-	if err != nil {
+	if len(gui.Hint) < 4 {
 		return
 	}
+	m, err := g.Notation().DecodeHodgesMove(gui.Hint)
+	if err != nil {
+		gui.AppendLog(fmt.Sprintf("error parsing move %s, %v", gui.Hint, err))
+		return
+	}
+
+	gui.DrawMsgLabel(fmt.Sprintf("(%s) Accept hint? y/n", gui.Hint), gui.Theme)
 
 	srcFile := int(m.Origin.File())
 	srcRank := int(m.Origin.Rank())
@@ -260,6 +267,26 @@ func (gui *GUI) drawHint(g *shogi.Game) {
 	// Redraw the destination square with the highlight background.
 	gui.drawSquare(dstX, dstY, destPiece, highlightBg, gui.Theme)
 
-	gui.DrawMsgLabel(fmt.Sprintf("(%s) Accept hint? y/n", gui.Hint), gui.Theme)
 	(*gui.Screen).Show()
+}
+
+func (g *GUI) AppendLog(s string) {
+	g.logs[g.logPointer] = s
+	g.logPointer = (g.logPointer + 1) % g.maxLogs
+}
+
+func (g *GUI) drawLogs() {
+	topMargin := topMargin + 15
+	labelStyle := tcell.StyleDefault.Foreground(g.Theme.Log)
+
+	g.drawLabel(leftMargin, topMargin-2, labelStyle, "----logs----")
+
+	p := 0
+	for i := (g.logPointer + 1) % g.maxLogs; i != g.logPointer; {
+		l := g.logs[i]
+		g.drawLabel(leftMargin, topMargin+p, labelStyle, l)
+		i = (i + 1) % g.maxLogs
+		p++
+	}
+	// g.drawLabel(leftMargin, topMargin+g.maxLogs, labelStyle, g.logs[g.logPointer])
 }

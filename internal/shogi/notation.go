@@ -213,6 +213,10 @@ func (n Notation) DecodeHodgesMove(move string) (Move, error) {
 		return Move{}, fmt.Errorf("shogi: Couldn't decode hodges movement, expecting length 4, received: %s", move)
 	}
 
+	if len(move) == 5 {
+		move = move[1:]
+	}
+
 	org := move[:2]
 	dest := move[2:4]
 

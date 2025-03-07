@@ -94,11 +94,15 @@ func main() {
 	gui := gui.NewGUI()
 	gui.Theme = theme.ThemeBasic
 
+	gui.AppendLog("Initializing....")
+
 	in := input.NewInput()
 
 	defer gui.Quit()
 
 	gui.Render(&gs, in)
+
+	gui.AppendLog("Initialized.")
 
 	for {
 		_ = Interact(gui, in, &gs)
